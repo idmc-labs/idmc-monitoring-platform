@@ -3,8 +3,8 @@ import pandas as pd
 import urllib.request
 import json
 
-api_url = "http://www.gdacs.org/export.aspx?profile=ARCHIVE&type=geojson&eventtype=EQ,TS,TC,FL,VO,DR&from={}&to={}"
-start_date = date(2017, 1, 1)
+api_url = "http://www.gdacs.org/export.aspx?profile=ARCHIVE&type=geojson&from={}&to={}"
+start_date = date(2018, 3, 1)
 end_date = date(2019, 8, 22)
 daterange = pd.date_range(start_date, end_date)
 
@@ -14,11 +14,11 @@ df = pd.DataFrame(columns=['Title', 'Summary', 'Id', 'Copyright', 'PublishedDate
 
 for single_date in daterange:
     single_date = single_date.strftime("%Y-%m-%d")
-    print(single_date)
     api_call = api_url.format(single_date, single_date)
     with urllib.request.urlopen(api_call) as url:
         data = json.loads(url.read().decode())
         data = data['features']
+        print(single_date,' Events: ',len(data))
         for feature in data:
             properties = feature['properties']
             gdacs_event = dict()
@@ -29,7 +29,7 @@ for single_date in daterange:
             # print(fromdate.strftime("%Y-%m-%d"))
             gdacs_event['Title'] = properties['htmldescription']
             gdacs_event['Id'] = '{}{}'.format(properties['eventtype'], properties['eventid'])
-            gdacs_event['IdllLinkURl'] = properties['link']
+            gdacs_event['LinkURl'] = properties['link']
             gdacs_event['gdacs_country'] = properties['countrylist']
             gdacs_event['gdacs_alert_level'] = properties['alertlevel']
             gdacs_event['gdacs_episodeid'] = properties['episodeid']
