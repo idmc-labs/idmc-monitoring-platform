@@ -3,7 +3,7 @@ import pandas as pd
 import urllib.request
 import json
 
-api_url = "http://www.gdacs.org/export.aspx?profile=ARCHIVE&type=geojson&from={}&to={}"
+api_url = "https://www.gdacs.org/export.aspx?profile=ARCHIVE&type=geojson&from={}&to={}"
 start_date = date(2018, 3, 1)
 end_date = date(2019, 8, 22)
 daterange = pd.date_range(start_date, end_date)
