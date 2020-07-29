@@ -1,9 +1,12 @@
 import csv
+from datetime import datetime
 import json
 from lxml import etree
 import re
 import requests
 from typing import List
+
+import pygeohash as geohash
 
 
 class XMLToJSONParser():
@@ -87,7 +90,7 @@ class GDACSFeed():
         return items
 
     def fetch_geojson_resource(self, items):
-        # todo
+        # todo (async)
         for item in items:
             item['geojson_data'] = ''
             if (resource_link := item['resources'][0]['url']).endswith('.geojson'):
@@ -186,7 +189,53 @@ class HazardMonitoringFeed(GDACSFeed):
         items = self.filter_duplicate_items(items)
         return items
 
+
+class ACLEDFeed():
+    URL = 'https://api.acleddata.com/acled/read?terms=accept&year={year}'
+    # geohash precision
+    GEOHASH_PRECISION = 9
+
+    # keys
+    DATA_ID = 'data_id'
+    LATITUDE_KEY = 'latitude'
+    LONGITUDE_KEY = 'longitude'
+
+    def __init__(self, year):
+        year = year or datetime.now().year
+        self.url = self.URL.format(year=year)
+
+    def fetch_content(self):
+        r = requests.get(self.url)
+        return r.content.decode()
+
+    def filter_duplicate_items(self, items: List) -> List:
+        new_items = []
+        seen = set()
+        for item in items:
+            if item[self.DATA_ID] in seen:
+                continue
+            else:
+                seen.add(item[self.DATA_ID])
+                new_items.append(item)
+        return new_items
+
+    def annotate_geohash(self, item: dict) -> str:
+        return geohash.encode(float(item[self.LATITUDE_KEY]), float(item[self.LONGITUDE_KEY]), precision=self.GEOHASH_PRECISION)
+
+    def annotate_extra_features(self, items: List) -> List:
+        items = list(map(lambda item: {**item, 'location_id': self.annotate_geohash(item)}, items))
+        return items
+
+    def get_feeds(self):
+        content = self.fetch_content()
+        data = json.loads(content)['data']
+        items = self.filter_duplicate_items(data)
+        items = self.annotate_extra_features(items)
+        return items
+
+
 if __name__ == '__main__':
     # feeds = GDACSFeed().get_feeds()
-    feeds = HazardMonitoringFeed().get_feeds()
-    print("hazard feed", json.dumps(feeds))
+    # feeds = HazardMonitoringFeed().get_feeds()
+    feeds = ACLEDFeed(year=2020).get_feeds()
+    print(json.dumps(feeds))
