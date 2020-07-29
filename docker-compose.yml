@@ -1,0 +1,10 @@
+version: '3.2'
+
+services:
+    feed:
+        build:
+          context: .
+          cache_from:
+            - feeder_feed:latest
+        volumes:
+            - .:/code
