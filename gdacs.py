@@ -1,5 +1,7 @@
+import csv
 import json
 from lxml import etree
+import re
 import requests
 from typing import List
 
@@ -104,6 +106,12 @@ class GDACSFeed():
                 new_items.append(item)
         return new_items
 
+    def map_features(self, items: List):
+        """
+        simply change the key names from one to another
+        """
+        # todo
+
     def get_feeds(self):
         json_feeds = XMLToJSONParser(url=self.URL)(self.ATTRIBUTES_REQUIRED)
         items = self.get_items(json_feeds)
@@ -112,6 +120,73 @@ class GDACSFeed():
         return items
 
 
+class HazardMonitoringFeed(GDACSFeed):
+    """
+    It uses the same response as from GDACS
+    And few features are annotated into it
+    """
+
+    IDMC_HAZARD_TRANSLATOR = 'https://raw.githubusercontent.com/idmc-labs/idmc-monitoring-platform/master/hazard_monitoring/IDMC_Hazard_Types_Translator.csv'
+
+    # gdacs keys
+    EVENT_TYPE = 'eventtype'
+    GDACS_EVENT_DESCRIPTION = 'description'
+    # idmc keys
+    IDMC_GDACS_EVENT_TYPE = 'GDACS_eventtype'
+    IDMC_HAZARD_ID = 'IDMC_id'
+    OUTPUT_IDMC_HAZARD_ID = 'hazard_type_id'
+    IDMC_HAZARD_TYPE = 'IDMC_type'
+    OUTPUT_IDMC_HAZARD_TYPE = 'hazard_type'
+    # new keys
+    DISPLACEMENT_MENTIONED = 'displacement_mentioned'
+
+    def fetch_hazard_types(self):
+        r = requests.get(self.IDMC_HAZARD_TRANSLATOR)
+        reader = csv.reader([each.decode() for each in r.iter_lines()])
+        headers = next(reader)
+        hazard_types = []
+        for line in reader:
+            hazard_types.append(dict(zip(headers, line)))
+        return hazard_types
+
+    def map_idmc_hazard(self, items: List, hazard_types: List):
+        for item in items:
+            idmc_hazard = list(filter(lambda x: x[self.IDMC_GDACS_EVENT_TYPE] == item[self.EVENT_TYPE], hazard_types))
+            item[self.IDMC_HAZARD_ID] = None
+            item[self.IDMC_HAZARD_TYPE] = None
+            if idmc_hazard:
+                item[self.OUTPUT_IDMC_HAZARD_ID] = idmc_hazard[0][self.IDMC_HAZARD_ID]
+                item[self.OUTPUT_IDMC_HAZARD_TYPE] = idmc_hazard[0][self.IDMC_HAZARD_TYPE]
+
+    def is_displacement_mentioned(self, item: dict) -> bool:
+        return bool(re.search('displace|destro|idp' in item[self.GDACS_EVENT_DESCRIPTION]))
+
+    def get_closest_neighbor(self, item: dict) -> dict:
+        """
+        NeighborFinder using WD (I dont know whats WD)
+        attributes annotated : OBJECTID, ISO3, ISO2, Short_name,lat, log, name, region, iso
+
+        gdac_country = countries affected (one or more)
+        short_name (above) pins down to a single country
+        
+        MAYBE: mainly to point out which country the event lies in
+        """
+        # todo
+
+    def annotate_attributes(self, items: List):
+        for item in items:
+            item[self.DISPLACEMENT_MENTIONED] = self.is_displacement_mentioned(item)
+
+    def get_feeds(self):
+        json_feeds = XMLToJSONParser(url=self.URL)()
+        items = self.get_items(json_feeds)
+        hazard_types = self.fetch_hazard_types()
+        self.map_idmc_hazard(items, hazard_types)
+        self.annotate_attributes(items)
+        items = self.filter_duplicate_items(items)
+        return items
+
 if __name__ == '__main__':
-    feeds = GDACSFeed().get_feeds()
-    print("gdacs feed", json.dumps(feeds))
+    # feeds = GDACSFeed().get_feeds()
+    feeds = HazardMonitoringFeed().get_feeds()
+    print("hazard feed", json.dumps(feeds))
