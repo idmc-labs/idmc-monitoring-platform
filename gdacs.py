@@ -1,5 +1,6 @@
 import csv
 from datetime import datetime
+import uuid
 import json
 from lxml import etree
 import re
@@ -162,7 +163,7 @@ class HazardMonitoringFeed(GDACSFeed):
                 item[self.OUTPUT_IDMC_HAZARD_TYPE] = idmc_hazard[0][self.IDMC_HAZARD_TYPE]
 
     def is_displacement_mentioned(self, item: dict) -> bool:
-        return bool(re.search('displace|destro|idp' in item[self.GDACS_EVENT_DESCRIPTION]))
+        return bool(re.search('displace|destro|idp', item[self.GDACS_EVENT_DESCRIPTION]))
 
     def get_closest_neighbor(self, item: dict) -> dict:
         """
@@ -200,6 +201,9 @@ class ACLEDFeed():
     LATITUDE_KEY = 'latitude'
     LONGITUDE_KEY = 'longitude'
 
+    # keys transformation to match the database fields
+    KEY_TRANSFORM = dict()
+
     def __init__(self, year):
         year = year or datetime.now().year
         self.url = self.URL.format(year=year)
@@ -219,11 +223,31 @@ class ACLEDFeed():
                 new_items.append(item)
         return new_items
 
-    def annotate_geohash(self, item: dict) -> str:
-        return geohash.encode(float(item[self.LATITUDE_KEY]), float(item[self.LONGITUDE_KEY]), precision=self.GEOHASH_PRECISION)
+    def annotate_geohash(self, item: dict) -> dict:
+        return {'location_id': geohash.encode(float(item[self.LATITUDE_KEY]), float(item[self.LONGITUDE_KEY]), precision=self.GEOHASH_PRECISION)}
+
+    def annotate_gwno(self, item: dict) -> dict:
+        # todo
+        return {'gwno': None}
+
+    def annotate_uuid(self, *a) -> dict:
+        return {'uuid_acled': str(uuid.uuid4())}
+
+    def annotate_ally_actors(self, item: dict) -> dict:
+        return {
+            'ally_actor_1': item['assoc_actor_1'],
+            'ally_actor_2': item['assoc_actor_2'],
+        }
 
     def annotate_extra_features(self, items: List) -> List:
-        items = list(map(lambda item: {**item, 'location_id': self.annotate_geohash(item)}, items))
+        annotate_funcs = [
+            self.annotate_ally_actors,
+            self.annotate_geohash,
+            self.annotate_gwno,
+            self.annotate_uuid
+        ]
+        for func in annotate_funcs:
+            items = list(map(lambda item: {**item, **func(item)}, items))
         return items
 
     def get_feeds(self):
@@ -235,7 +259,7 @@ class ACLEDFeed():
 
 
 if __name__ == '__main__':
-    # feeds = GDACSFeed().get_feeds()
-    # feeds = HazardMonitoringFeed().get_feeds()
-    feeds = ACLEDFeed(year=2020).get_feeds()
+    # feeds = GDACSFeed().get_feeds()[0]
+    # feeds = HazardMonitoringFeed().get_feeds()[0]
+    feeds = ACLEDFeed(year=2020).get_feeds()[0]
     print(json.dumps(feeds))
