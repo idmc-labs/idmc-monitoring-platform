@@ -8,6 +8,7 @@ import requests
 from typing import List
 
 import pygeohash as geohash
+from dateutil.parser import parse
 
 
 class XMLToJSONParser():
@@ -18,7 +19,7 @@ class XMLToJSONParser():
         response = requests.get(self.url)
         return response.content
 
-    def get_json_data(self, xml_element, attributes_required: List) -> dict:
+    def get_json_data(self, xml_element, attributes_required: List, keep_original_xml=list()) -> dict:
         """
         returns a json from xml element
         with 
@@ -26,8 +27,9 @@ class XMLToJSONParser():
         try:
             tag = etree.QName(xml_element).localname
         except ValueError:
-            # print(xml_element.tag)
             return {}
+        if tag in keep_original_xml:
+            return {tag: etree.tostring(xml_element).decode()}
         if len(xml_element) == 0:
             # there are no children
             d = {tag: xml_element.text}
@@ -40,7 +42,7 @@ class XMLToJSONParser():
         else:
             d = {
                 tag: [
-                    self.get_json_data(child, attributes_required)
+                    self.get_json_data(child, attributes_required, keep_original_xml)
                     for child in xml_element
                 ]
             }
@@ -50,36 +52,70 @@ class XMLToJSONParser():
                     d[k] = v
             return d
 
-    def get_features(self, attributes_required):
+    def get_features(self, attributes_required, keep_original_xml):
         """
         returns the json {tag: text} attributes obtained from the gdacs rss feed
         """
         content = self.fetch_content()
         root = etree.fromstring(content)
-        return self.get_json_data(root, attributes_required)
+        return self.get_json_data(root, attributes_required, keep_original_xml)
     
-    def __call__(self, attributes_required=list()):
-        return self.get_features(attributes_required)
+    def __call__(self, attributes_required=list(), keep_original_xml=list()):
+        return self.get_features(attributes_required, keep_original_xml)
 
 
 class GDACSFeed():
     URL = "http://dev.gdacs.org/xml/rss.xml"
     ITEM_KEY = 'item'
-    ITEM_FIELDS = [
-        'title', 'description', 'link', 'pubDate', 'fromDate', 'toDate', 'durationinweek', 'year', 
-        'point', 'bbox', 'cap', 'eventtype', 'alertlevel', 'alertscore', 'episodeid', 'episodealertlevel', 
-        'episodealertscore', 'eventid', 'eventname', 'severity',  'population', 'vulnerability', 
-        'iso3', 'country', 'glide', 'mapimage', 'maplink', 'gtsimage', 'gtslink', 'version',
-    ]
     ATTRIBUTES_REQUIRED = [
         'resource'
+    ]
+    KEEP_ORIGINAL_XML = [
+        'population',
+        'severity',
+        'vulnerability',
+        'resources',
+    ]
+    DATE_FEATURES = [
+        'fromdate',
+        'todate',
+        'pubDate',
     ]
 
     # keys
     PUBLISH_DATE = 'pubDate'
     EVENT_ID = 'eventid'
 
+    # key transformation to store into the database
+    # src -> destination
+    KEY_TRANSFORM = {
+        'alertlevel': 'gdacs_alertlevel',
+        'cap': 'gdacs_cap',
+        'country': 'gdacs_country',
+        'episodeid': 'gdacs_episodeid',
+        'eventid': 'gdacs_eventid',
+        'eventname': 'gdacs_eventname',
+        'eventtype': 'gdacs_eventtype',
+        'fromdate': 'gdacs_fromdate',
+        'glide': 'gdacs_glide',
+        'gtslink': 'gdacs_gtslink',
+        'population': 'gdacs_population',
+        'resources': 'gdacs_resources',
+        'severity': 'gdacs_severity',
+        'todate': 'gdacs_todate',
+        'version': 'gdacs_version',
+        'vulnerability': 'gdacs_vulnerability',
+        'year': 'gdacs_year',
+        'pubDate': 'publisheddate',
+        'description': 'content',
+        'guid': 'id',
+        'link': 'linkurl',
+    }
+
     def get_items(self, json_feeds):
+        """
+        returns data points from the given feed        
+        """
         items = []
         for each in json_feeds['rss'][0]['channel']:
             if self.ITEM_KEY in each.keys():
@@ -93,11 +129,15 @@ class GDACSFeed():
     def fetch_geojson_resource(self, items):
         # todo (async)
         for item in items:
-            item['geojson_data'] = ''
-            if (resource_link := item['resources'][0]['url']).endswith('.geojson'):
+            item['gdacs_geojson'] = ''
+            item['gdacs_geojson_link'] = ''
+            urls = re.findall('(?:(?:http):\/\/)?[\w/\-?=%.]+\.geojson', item['resources'])
+            if urls:
                 # todo get from the geojson link
                 # in FMW, geojson feature is added into item
-                item['geojson_data'] = requests.get(resource_link)
+                item['gdacs_geojson'] = (geojson := requests.get(urls[0]).content) \
+                    if isinstance(geojson, str) else geojson.decode()
+                item['gdacs_geojson_link'] = urls[0]
 
     def filter_duplicate_items(self, items):
         new_items = []
@@ -114,13 +154,31 @@ class GDACSFeed():
         """
         simply change the key names from one to another
         """
-        # todo
+        def func(item):
+            for src, dest in self.KEY_TRANSFORM.items():
+                item[dest] = item.pop(src)
+            return item
+        return list(map(func, items))
+
+    @classmethod
+    def format_string_to_ISO_date(cls, date: str) -> str:
+        return parse(date).strftime('%Y-%m-%d')
+
+    def format_date_features(self, items: List) -> List:
+        return list(map(lambda item: {
+                            **item, 
+                            **{date_field: self.format_string_to_ISO_date(item[date_field]) 
+                                for date_field in self.DATE_FEATURES}}, 
+                        items))
 
     def get_feeds(self):
-        json_feeds = XMLToJSONParser(url=self.URL)(self.ATTRIBUTES_REQUIRED)
+        json_feeds = XMLToJSONParser(url=self.URL)(self.ATTRIBUTES_REQUIRED, self.KEEP_ORIGINAL_XML)
         items = self.get_items(json_feeds)
         self.fetch_geojson_resource(items)
         items = self.filter_duplicate_items(items)
+        items = self.format_date_features(items)
+        # finally
+        items = self.map_features(items)
         return items
 
 
@@ -259,7 +317,7 @@ class ACLEDFeed():
 
 
 if __name__ == '__main__':
-    # feeds = GDACSFeed().get_feeds()[0]
+    feeds = GDACSFeed().get_feeds()[0]
     # feeds = HazardMonitoringFeed().get_feeds()[0]
-    feeds = ACLEDFeed(year=2020).get_feeds()[0]
+    # feeds = ACLEDFeed(year=2020).get_feeds()[0]
     print(json.dumps(feeds))
