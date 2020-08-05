@@ -12,7 +12,11 @@ from dateutil.parser import parse
 
 
 class ACLEDFeed():
-    URL = 'https://api.acleddata.com/acled/read?terms=accept&year={year}'
+    """
+    https://acleddata.com/acleddatanew/wp-content/uploads/dlm_uploads/2019/01/API-User-Guide2020.pdf
+    """
+    
+    URL = 'https://api.acleddata.com/acled/read?terms=accept&page={page}'
     # geohash precision
     GEOHASH_PRECISION = 9
 
@@ -24,9 +28,8 @@ class ACLEDFeed():
     # keys transformation to match the database fields
     KEY_TRANSFORM = dict()
 
-    def __init__(self, year=None):
-        year = year or datetime.now().year
-        self.url = self.URL.format(year=year)
+    def __init__(self, page=1):
+        self.url = self.URL.format(page=page)
 
     def fetch_content(self):
         r = requests.get(self.url)
@@ -73,12 +76,16 @@ class ACLEDFeed():
 
     def get_feeds(self):
         content = self.fetch_content()
-        data = json.loads(content)['data']
+        try:
+            data = json.loads(content)['data']
+        except Exception as e:
+            print(f'Exception from the ACLED api content at {self.url}', e, 'content=', content)
+            return []
         items = self.filter_duplicate_items(data)
         items = self.annotate_extra_features(items)
         return items
 
 
 if __name__ == '__main__':
-    feeds = ACLEDFeed(year=2020).get_feeds()[0]
+    feeds = ACLEDFeed().get_feeds()[0]
     print(json.dumps(feeds))

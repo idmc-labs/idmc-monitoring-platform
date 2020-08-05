@@ -1,5 +1,3 @@
-from sqlalchemy import desc
-
 from feeds.collectors.hazard_monitoring import HazardMonitoringFeed
 from feeds.connectors import session, engine
 from feeds.tables import HazardTable
