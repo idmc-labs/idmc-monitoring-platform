@@ -15,6 +15,11 @@ services:
           context: .
           cache_from:
             - feeder_feed:latest
+        env_file:
+            - ./postgres/.env
+        environment:
+            - POSTGRES_HOST=db
+            - POSTGRES_SCHEMA=monitoring_platform
         volumes:
             - .:/code
         depends_on:
