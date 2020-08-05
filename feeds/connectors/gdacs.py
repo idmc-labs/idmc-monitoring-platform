@@ -1,7 +1,4 @@
-from datetime import date
-
-from dateutil.parser import parse
-from sqlalchemy import create_engine, desc, asc
+from sqlalchemy import desc
 
 from feeds.collectors.gdacs import GDACSFeed
 from feeds.connectors import session, engine

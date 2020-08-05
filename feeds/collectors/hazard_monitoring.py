@@ -7,7 +7,8 @@ from typing import List
 
 import pygeohash as geohash
 
-from feeds.gdacs import GDACSFeed
+from feeds import XMLToJSONParser
+from feeds.collectors.gdacs import GDACSFeed
 
 
 class HazardMonitoringFeed(GDACSFeed):
