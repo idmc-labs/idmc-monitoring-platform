@@ -5,4 +5,6 @@ from feeds.connectors import Base, engine
 
 
 meta_data = MetaData(bind=engine, reflect=True)
-Gdacs = meta_data.tables['gdacs_data']
+GdacsTable = meta_data.tables['gdacs_data']
+HazardTable = meta_data.tables['hazard_data']
+AcledTable = meta_data.tables['acled_data']
