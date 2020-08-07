@@ -90,7 +90,7 @@ class HazardMonitoringFeed(GDACSFeed):
         MAYBE: mainly to point out which country the event lies in
         """
         # todo
-        {
+        return {
             'iso3': None,  # based on the lat-long but probably will be the same
             'iso3_affected': None,  # will be empty
             'country': None  # 

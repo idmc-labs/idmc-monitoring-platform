@@ -29,7 +29,6 @@ class XMLToJSONParser():
                 # append the attributes as well
                 for k, v in dict(xml_element.attrib).items():
                     d[k] = v
-            return d
         else:
             d = {
                 tag: [
@@ -41,7 +40,7 @@ class XMLToJSONParser():
                 # append the attributes as well
                 for k, v in dict(xml_element.attrib).items():
                     d[k] = v
-            return d
+        return d
 
     def get_features(self, attributes_required: List, keep_original_xml: List):
         """

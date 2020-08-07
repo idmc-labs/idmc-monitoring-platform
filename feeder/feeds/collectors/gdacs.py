@@ -91,9 +91,7 @@ class GDACSFeed():
         new_items = []
         seen = set()
         for item in items:
-            if (item[self.PUBLISH_DATE], item[self.EVENT_ID]) in seen:
-                continue
-            else:
+            if (item[self.PUBLISH_DATE], item[self.EVENT_ID]) not in seen:
                 seen.add((item[self.PUBLISH_DATE], item[self.EVENT_ID]))
                 new_items.append(item)
         return new_items

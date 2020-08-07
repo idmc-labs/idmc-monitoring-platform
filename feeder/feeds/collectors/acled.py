@@ -39,9 +39,7 @@ class ACLEDFeed():
         new_items = []
         seen = set()
         for item in items:
-            if item[self.DATA_ID] in seen:
-                continue
-            else:
+            if item[self.DATA_ID] not in seen:
                 seen.add(item[self.DATA_ID])
                 new_items.append(item)
         return new_items
