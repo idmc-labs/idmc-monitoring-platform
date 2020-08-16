@@ -9,6 +9,7 @@ import pygeohash as geohash
 
 from feeds import XMLToJSONParser
 from feeds.collectors.gdacs import GDACSFeed
+from feeds.countries import countries
 
 
 class HazardMonitoringFeed(GDACSFeed):
@@ -16,6 +17,7 @@ class HazardMonitoringFeed(GDACSFeed):
     It uses the same response as from GDACS
     And few features are annotated into it
     """
+    SHAPE_FILE = 'feeds/countries/TM_WORLD_BORDERS-0.3.shp'
 
     IDMC_HAZARD_TRANSLATOR = 'https://raw.githubusercontent.com/idmc-labs/idmc-monitoring-platform/master/hazard_monitoring/IDMC_Hazard_Types_Translator.csv'
     SOURCE = 'GDACS'
@@ -53,7 +55,10 @@ class HazardMonitoringFeed(GDACSFeed):
         'eventtype': 'hazard_code_source',
         'alertlevel': 'alert_score',
         'population': 'affected',
+        # country info from GDACS
         'country': 'countries_affected',
+        # country info from GDAL shape file
+        'country_gdal': 'country',
         'link': 'source_url',
     }
 
@@ -79,29 +84,40 @@ class HazardMonitoringFeed(GDACSFeed):
     def annotate_is_displacement_mentioned(self, item: dict) -> bool:
         return {self.DISPLACEMENT_MENTIONED: bool(re.search('displace|destro|idp', item[self.GDACS_EVENT_DESCRIPTION]))}
 
-    def get_closest_neighbor(self, item: dict) -> dict:
+    def annotate_event_occurring_country(self, item: dict) -> dict:
         """
-        NeighborFinder using WD (I dont know whats WD)
-        attributes annotated : OBJECTID, ISO3, ISO2, Short_name,lat, log, name, region, iso
+        NeighborFinder using WD
+        https://gist.githubusercontent.com/matemies/fe0be35f4fcbd4ae2adde41241b21b2f/raw/1864d9f06f6d7a33526232533965d31ea77a3360/WD_UltraSimplified_ADM0.geojson)
+        Which will annotate, followings
+            - OBJECTID, ISO3, ISO2, Short_name,lat, log, name, region, iso
+            - also, distance and angles
+        ... out of which most are removed except iso3 and short_name
 
-        gdacs_country = countries affected (one or more)
-        short_name (above) pins down to a single country
-        
-        MAYBE: mainly to point out which country the event lies in
+        We will be using https://github.com/che0/countries
         """
-        # todo
+        country_checker = countries.CountryChecker(self.SHAPE_FILE)
+        country = country_checker.getCountry(countries.Point(
+            float(item['Point'][0]['lat']),
+            float(item['Point'][1]['long']))
+        )
+        if country is None:
+            return {
+                'iso3': None,
+                'iso3_affected': None,
+                'country_gdal': None
+            }
         return {
-            'iso3': None,  # based on the lat-long but probably will be the same
-            'iso3_affected': None,  # will be empty
-            'country': None  # 
+            'iso3': country.iso,
+            'iso3_affected': None,
+            'country_gdal': country.name
         }
 
     def annotate_geohash(self, item: dict) -> dict:
         # todo clean this
-        return {self.LOCATION_ID: geohash.encode(float(item['Point'][0]['lat']), 
-                                                float(item['Point'][1]['long']), 
-                                                precision=self.GEOHASH_PRECISION)
-               }
+        return {self.LOCATION_ID: geohash.encode(float(item['Point'][0]['lat']),
+                                                 float(item['Point'][1]['long']),
+                                                 precision=self.GEOHASH_PRECISION)
+                }
 
     def annotate_uuid(self, *a) -> dict:
         return {'uuid_hazard': str(uuid.uuid4())}
@@ -120,8 +136,7 @@ class HazardMonitoringFeed(GDACSFeed):
 
     def annotate_idmc_event_name(self, item) -> dict:
         return {
-            self.IDMC_EVENT_NAME: f'{item[self.GDACS_COUNTRY]}: {item[self.OUTPUT_IDMC_HAZARD_TYPE]} \
-                - {item[self.GDACS_FROM_DATE]}'
+            self.IDMC_EVENT_NAME: f'{item[self.GDACS_COUNTRY] or ""}: {item[self.OUTPUT_IDMC_HAZARD_TYPE] or ""} - {item[self.GDACS_FROM_DATE] or ""}'
         }
 
     def annotate_undocumented(self, item) -> dict:
@@ -150,6 +165,7 @@ class HazardMonitoringFeed(GDACSFeed):
             self.annotate_source,
             self.annotate_idmc_event_name,
             self.annotate_undocumented,
+            self.annotate_event_occurring_country,
         ]
         for func in annotate_funcs:
             items = list(map(lambda item: {**item, **func(item)}, items))
