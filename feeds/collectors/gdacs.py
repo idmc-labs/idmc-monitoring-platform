@@ -110,7 +110,7 @@ class GDACSFeed():
 
     @classmethod
     def format_string_to_ISO_date(cls, date: str) -> str:
-        return parse(date).date()
+        return str(parse(date).date())
 
     def format_date_features(self, items: List) -> List:
         return list(map(lambda item: {
