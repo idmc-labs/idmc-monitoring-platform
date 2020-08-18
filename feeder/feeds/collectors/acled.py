@@ -69,7 +69,7 @@ class ACLEDFeed():
             self.annotate_uuid
         ]
         for func in annotate_funcs:
-            items = list(map(lambda item: {**item, **func(item)}, items))
+            items = [{**item, **func(item)} for item in items]
         return items
 
     def get_feeds(self):
