@@ -1,6 +1,7 @@
 import csv
 import uuid
 import json
+import os
 import re
 import requests
 from typing import List
@@ -11,13 +12,15 @@ from feeds import XMLToJSONParser
 from feeds.collectors.gdacs import GDACSFeed
 from feeds.countries import countries
 
+from feeds import BASE_DIR
+
 
 class HazardMonitoringFeed(GDACSFeed):
     """
     It uses the same response as from GDACS
     And few features are annotated into it
     """
-    SHAPE_FILE = 'feeds/countries/TM_WORLD_BORDERS-0.3.shp'
+    SHAPE_FILE = os.path.join(BASE_DIR, 'feeds', 'countries', 'TM_WORLD_BORDERS-0.3.shp')
 
     IDMC_HAZARD_TRANSLATOR = 'https://raw.githubusercontent.com/idmc-labs/idmc-monitoring-platform/master/hazard_monitoring/IDMC_Hazard_Types_Translator.csv'
     SOURCE = 'GDACS'
@@ -94,8 +97,9 @@ class HazardMonitoringFeed(GDACSFeed):
 
         We will be using https://github.com/che0/countries
         """
-        country_checker = countries.CountryChecker(self.SHAPE_FILE)
-        country = country_checker.getCountry(countries.Point(
+        if not hasattr(self, 'country_checker'):
+            self.country_checker = countries.CountryChecker(self.SHAPE_FILE)
+        country = self.country_checker.getCountry(countries.Point(
             float(item['Point'][0]['lat']),
             float(item['Point'][1]['long']))
         )

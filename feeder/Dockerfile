@@ -13,6 +13,14 @@ ARG C_INCLUDE_PATH=/usr/include/gdal
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
+RUN touch /var/log/cron.log
+
+ADD crontab /etc/cron.d/monitoring-cronjob
+RUN chmod 0644 /etc/cron.d/monitoring-cronjob
+
+RUN apt-get install -y cron
+
 COPY . .
 
-CMD ["tail", "-f", "/dev/null"]
+ENTRYPOINT ["/bin/sh", "/code/runner.sh"]
+#CMD cron -f

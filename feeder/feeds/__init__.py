@@ -3,6 +3,9 @@ import requests
 from typing import List
 
 
+BASE_DIR = '/code'
+
+
 class XMLToJSONParser():
     def __init__(self, url):
         self.url = url

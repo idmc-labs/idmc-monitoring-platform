@@ -11,6 +11,7 @@ services:
         volumes:
             - postgres-data:/var/lib/postgresql/data
     feed:
+        user: root
         build:
           context: .
           cache_from:
