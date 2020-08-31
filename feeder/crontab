@@ -2,4 +2,4 @@ SHELL=/bin/bash
 
 # /etc/environment is empty when container is built
 # without environment variables, python points to /usr/bin/python (2.7)
-* * * * * root . /root/project_env.sh ;/usr/local/bin/python /code/runner.py >> /var/log/cron.log 2>&1
+* */6 * * * root . /root/project_env.sh ;/usr/local/bin/python /code/runner.py >> /var/log/cron.log 2>&1
