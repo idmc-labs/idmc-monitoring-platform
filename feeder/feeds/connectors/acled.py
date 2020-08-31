@@ -33,9 +33,6 @@ def runner():
             break
         temp += new_feeds
         page += 1
-        if page == 10:
-            print("Breaking deliberately for now...")
-            break
 
     print(f'\nFound {len(temp)} new feeds from acled', end='\n\n')
     engine.execute(AcledTable.insert(), temp)

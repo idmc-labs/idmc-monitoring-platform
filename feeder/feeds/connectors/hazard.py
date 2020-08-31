@@ -7,7 +7,7 @@ def runner():
     print(f'Fetching existing HAZARD entries', end='\n\n')
     existing_entries = set([
         # data intersection is checked against following fields
-        (each.pub_date, each.event_id) for each in
+        (str(each.pub_date), each.event_id) for each in
         session.query(HazardTable).
             with_entities(HazardTable.c.pub_date, HazardTable.c.event_id)
     ])

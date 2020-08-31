@@ -10,6 +10,10 @@ from feeds import XMLToJSONParser
 
 
 class GDACSFeed():
+    """
+    Following fields: {'lastupdate', 'copyright', 'gdacs_geogson', 'summary', 'category', 'author'}
+    are not available in the rss feeds
+    """
     URL = "http://dev.gdacs.org/xml/rss_7d.xml"
     ITEM_KEY = 'item'
     # in order to fetch the attributes of a given xml element

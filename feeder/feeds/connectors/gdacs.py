@@ -9,7 +9,7 @@ def runner():
     print(f'Fetching existing GDACS entries', end='\n\n')
     existing_entries = set([
         # data intersection is checked against following fields
-        (each.publisheddate, each.id) for each in
+        (str(each.publisheddate), each.id) for each in
         session.query(GdacsTable).
             order_by(desc(GdacsTable.c.publisheddate)).
             with_entities(GdacsTable.c.publisheddate, GdacsTable.c.id)
