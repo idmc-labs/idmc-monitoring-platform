@@ -6,8 +6,8 @@ services:
             context: ./postgres
             cache_from:
                 - feeder_db:latest
-        env_file:
-            - ./postgres/.env
+        environment:
+            - POSTGRES_PASSWORD=postgres
         volumes:
             - postgres-data:/var/lib/postgresql/data
     feed:
@@ -16,9 +16,8 @@ services:
           context: .
           cache_from:
             - feeder_feed:latest
-        env_file:
-            - ./postgres/.env
         environment:
+            - POSTGRES_PASSWORD=postgres
             - POSTGRES_HOST=db
             - POSTGRES_SCHEMA=monitoring_platform
         volumes:
