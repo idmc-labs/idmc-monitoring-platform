@@ -1,0 +1,6 @@
+__pycache__/
+.idea/
+.env
+
+# postgres init sql
+idmc.sql
