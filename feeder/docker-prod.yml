@@ -1,0 +1,13 @@
+version: '3.2'
+
+services:
+   feed:
+        user: root
+        build:
+          context: .
+          cache_from:
+            - feeder_feed:latest
+        env_file:
+          - ./.env
+        volumes:
+            - .:/code
