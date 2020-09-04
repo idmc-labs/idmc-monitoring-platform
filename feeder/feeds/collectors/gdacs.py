@@ -83,7 +83,7 @@ class GDACSFeed():
         for item in items:
             item['gdacs_geojson'] = ''
             item['gdacs_geojson_link'] = ''
-            urls = re.findall('(?:(?:http):\/\/)?[\w/\-?=%.]+\.geojson', item['resources'])
+            urls = re.findall('https?:\/\/?[\w/\-?=%.]+\.geojson', item['resources'])
             if urls:
                 # todo verification remains
                 # in FMW, geojson feature is added into item
